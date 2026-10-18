@@ -121,7 +121,7 @@ npx shadcn@latest add deeplethe/solid-glass/status-glyph
 | `content/` | The documentation. `components/` is shadcn/ui's page for each component; `solid/` and `docs/` are Solid Glass's. |
 | `src/site/`, `src/pages/`, `src/home/` | The site: header, sidebar, component preview, and the wall of cards on the home page. |
 | `.github/` | The checks every pull request must pass (`checks.yml`), the workflow that publishes `main` (`pages.yml`), and the templates for issues and pull requests. |
-| `scripts/build-docs.mjs` | Turns `content/` into `src/docs/generated.json`, which the site renders. |
+| `scripts/build-docs.mjs` | Turns `content/` into the lightweight `src/docs/catalog.json` and individual `src/docs/pages/<section>/<slug>.json` bodies loaded on demand. |
 
 ## Run
 

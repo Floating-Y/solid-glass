@@ -1,5 +1,5 @@
 /**
- * Turn the documentation in content/ into src/docs/generated.json, which the site renders.
+ * Turn content/ into a lightweight src/docs/catalog.json and one JSON body per page.
  *
  *   node scripts/build-docs.mjs
  *
@@ -9,8 +9,9 @@
  * <CodeTabs> block that says how to install, <Callout>, <Step>, and <Widget name="…" /> for the
  * live figures in Solid Glass's own pages. Anything else that is JSX is left out.
  */
-import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs"
-import { dirname, join } from "node:path"
+import assert from "node:assert/strict"
+import { existsSync, mkdirSync, readdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs"
+import { basename, dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..")
@@ -25,7 +26,7 @@ const slug = (text) =>
 const attr = (tag, name) => tag.match(new RegExp(`(?:^|[\\s<])${name}="([^"]*)"`))?.[1]
 
 function parse(file, section) {
-  const raw = readFileSync(file, "utf8")
+  const raw = readFileSync(file, "utf8").replace(/\r\n/g, "\n")
   const front = raw.match(/^---\n([\s\S]*?)\n---\n/)
   const meta = Object.fromEntries(
     (front?.[1] ?? "")
@@ -171,7 +172,7 @@ function parse(file, section) {
     if (n) block.id = `${block.id}-${n}`
   }
 
-  const name = file.split("/").pop().replace(/\.mdx$/, "")
+  const name = basename(file, ".mdx")
   return { slug: name, section, group: meta.group, title: meta.title ?? name, description: meta.description ?? "", order: Number(meta.order ?? 0), blocks: kept }
 }
 
@@ -190,6 +191,38 @@ for (const [folder, section] of [
   pages.push(...found)
 }
 
-mkdirSync(join(root, "src/docs"), { recursive: true })
-writeFileSync(join(root, "src/docs/generated.json"), JSON.stringify(pages))
-console.log(`docs: ${pages.length} pages -> src/docs/generated.json`)
+const out = join(root, "src/docs")
+const catalog = pages.map(({ blocks, ...entry }) => entry)
+const keys = pages.map((page) => `${page.section}/${page.slug}`)
+assert.equal(new Set(keys).size, pages.length, "Documentation page keys must be unique")
+for (const page of pages) assert(!/[\\/]/.test(page.slug), `Invalid page slug: ${page.slug}`)
+
+mkdirSync(out, { recursive: true })
+writeFileSync(join(out, "catalog.json"), JSON.stringify(catalog))
+for (const section of ["docs", "solid", "components"]) {
+  const directory = join(out, "pages", section)
+  mkdirSync(directory, { recursive: true })
+  const sectionPages = pages.filter((page) => page.section === section)
+  const filenames = new Set(sectionPages.map((page) => `${page.slug}.json`))
+  // Deleted source pages must not remain discoverable by import.meta.glob.
+  for (const filename of readdirSync(directory)) {
+    if (filename.endsWith(".json") && !filenames.has(filename)) unlinkSync(join(directory, filename))
+  }
+  for (const page of sectionPages) writeFileSync(join(directory, `${page.slug}.json`), JSON.stringify(page))
+  assert.deepEqual(readdirSync(directory).filter((file) => file.endsWith(".json")).sort(), [...filenames].sort())
+}
+const legacy = join(out, "generated.json")
+if (existsSync(legacy)) unlinkSync(legacy)
+
+// Check the files consumers import, including metadata, order, and the parsed body.
+const savedCatalog = JSON.parse(readFileSync(join(out, "catalog.json"), "utf8"))
+assert.equal(savedCatalog.length, pages.length)
+for (const [index, page] of pages.entries()) {
+  const savedPage = JSON.parse(readFileSync(join(out, "pages", page.section, `${page.slug}.json`), "utf8"))
+  const { blocks, ...entry } = savedPage
+  assert(!("blocks" in savedCatalog[index]), "The catalog must not contain document bodies")
+  assert(Array.isArray(blocks), `Missing body: ${keys[index]}`)
+  assert.deepEqual(entry, savedCatalog[index])
+  assert.deepEqual(savedPage, JSON.parse(JSON.stringify(page)))
+}
+console.log(`docs: ${pages.length} pages -> src/docs/catalog.json + src/docs/pages/ (consistency checked)`)

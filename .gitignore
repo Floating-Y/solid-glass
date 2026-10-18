@@ -3,4 +3,5 @@ dist
 *.tsbuildinfo
 .DS_Store
 public/r
-src/docs/generated.json
+src/docs/catalog.json
+src/docs/pages/

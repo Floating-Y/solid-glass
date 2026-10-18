@@ -63,6 +63,8 @@ npm run typecheck
 npm run build
 ```
 
+`npm run docs` 生成 `src/docs/catalog.json`（只有目录信息）和 `src/docs/pages/<section>/<slug>.json`（每篇完整文档一个文件）。这些文件已被 Git 忽略，请修改 `content/` 中的源文件。生成过程会清理已删除的页面，并断言目录与逐篇文件的顺序、元数据和解析后的正文一致。
+
 这里没有单元测试：这个仓库产出的是"看起来怎样"。所以改动靠看来验证，PR 里要写明看了什么：
 
 - `/dev/examples` 显示 `0 failed`。

@@ -1,6 +1,9 @@
 import * as React from "react"
 
-import { pages } from "@/site/pages"
+import type { Page } from "@/site/pages"
+
+// This module is reachable only from the development route.
+const pages = Object.values(import.meta.glob<Page>("/src/docs/pages/*/*.json", { eager: true, import: "default" }))
 
 const modules = import.meta.glob<Record<string, unknown>>("/src/examples/*.tsx")
 

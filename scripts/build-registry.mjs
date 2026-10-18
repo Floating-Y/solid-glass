@@ -108,7 +108,8 @@ const registry = {
 writeFileSync(join(root, "registry.json"), `${JSON.stringify(registry, null, 2)}\n`)
 
 rmSync(out, { recursive: true, force: true })
-execFileSync("npx", ["shadcn", "build", "registry.json", "--output", "public/r"], { cwd: root, stdio: ["ignore", "ignore", "inherit"] })
+// Run the installed CLI through Node: Windows cannot execute npx.cmd directly.
+execFileSync(process.execPath, [join(root, "node_modules/shadcn/dist/index.js"), "build", "registry.json", "--output", "public/r"], { cwd: root, stdio: ["ignore", "ignore", "inherit"] })
 // What the site serves names Solid Glass's own by the site's address instead (see the top).
 for (const file of readdirSync(out).filter((file) => file.endsWith(".json"))) {
   const path = join(out, file)

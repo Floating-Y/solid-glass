@@ -1,4 +1,4 @@
-import generated from "@/docs/generated.json"
+import catalog from "@/docs/catalog.json"
 
 export type Block =
   | { type: "md"; text: string }
@@ -11,7 +11,7 @@ export type Block =
   | { type: "callout"; text: string }
   | { type: "step"; text: string }
 
-export type Page = {
+export type PageEntry = {
   slug: string
   /** docs: the pages about Solid Glass itself. solid: its own components. components: shadcn/ui's. */
   section: "docs" | "solid" | "components"
@@ -19,10 +19,14 @@ export type Page = {
   group?: string
   title: string
   description: string
+  order: number
+}
+
+export type Page = PageEntry & {
   blocks: Block[]
 }
 
-export const pages = generated as Page[]
+export const pages = catalog as PageEntry[]
 export const docs = pages.filter((page) => page.section === "docs")
 /** For interfaces where an agent works: listed apart, after the general components. */
 export const agents = pages.filter((page) => page.section === "solid" && page.group === "agents")
@@ -31,7 +35,7 @@ export const components = pages
   .filter((page) => page.section === "components" || (page.section === "solid" && page.group !== "agents"))
   .sort((a, b) => a.title.localeCompare(b.title))
 
-export const urlOf = (page: Page) =>
+export const urlOf = (page: PageEntry) =>
   page.section === "docs" ? (page.slug === "introduction" ? "/docs" : `/docs/${page.slug}`) : `/docs/components/${page.slug}`
 
 /** In the order the sidebar lists them, with the list of all components between the docs and the components. */

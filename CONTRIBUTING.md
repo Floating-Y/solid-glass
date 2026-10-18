@@ -63,6 +63,8 @@ npm run typecheck
 npm run build
 ```
 
+`npm run docs` generates `src/docs/catalog.json` (metadata only) and `src/docs/pages/<section>/<slug>.json` (one complete page per file). These files are ignored by Git; edit `content/` instead. Generation removes deleted pages and checks that the catalog and page files agree, including their order and parsed content.
+
 There are no unit tests: what this repository makes is how things look. So a change is checked by looking, and the pull request says what was looked at:
 
 - `/dev/examples` reports `0 failed`.
