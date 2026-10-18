@@ -206,6 +206,7 @@ function TableOfContents({ page }: { page: Page }) {
   const [active, setActive] = React.useState<string | null>(null)
 
   React.useEffect(() => {
+    if (typeof IntersectionObserver === "undefined") return
     const observer = new IntersectionObserver(
       (entries) => {
         for (const entry of entries) if (entry.isIntersecting) setActive(entry.target.id)

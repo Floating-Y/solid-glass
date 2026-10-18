@@ -31,14 +31,22 @@ function exampleOf(name: string) {
 /** The text of a file, once it has been fetched. */
 function useSource(load: (() => Promise<string>) | undefined) {
   const [text, setText] = React.useState<string | null>(null)
+  const [error, setError] = React.useState<Error | null>(null)
   React.useEffect(() => {
     let live = true
     setText(null)
-    void load?.().then((value) => live && setText(value))
+    setError(null)
+    void load?.().then(
+      (value) => live && setText(value),
+      (reason: unknown) => {
+        if (live) setError(reason instanceof Error ? reason : new Error(String(reason)))
+      }
+    )
     return () => {
       live = false
     }
   }, [load])
+  if (error) throw error
   return text
 }
 
@@ -61,14 +69,43 @@ export function ComponentPreview({
   wrapperClassName?: string
   hideCode?: boolean
 }) {
-  const Example = exampleOf(name)
-  const source = useSource(sources[`/src/examples/${name}.tsx`])
+  const previewRef = React.useRef<HTMLDivElement>(null)
+  const [active, setActive] = React.useState(false)
+  const Example = active ? exampleOf(name) : null
+  const sourceLoader = sources[`/src/examples/${name}.tsx`]
+  const source = useSource(active && !hideCode ? sourceLoader : undefined)
   const [open, setOpen] = React.useState(false)
   const code = source ?? ""
+  const loading = (
+    // The borderless interactive chart has no minimum height on narrow screens.
+    <span role="status" className={cn("flex h-52 max-h-full items-center justify-center text-muted-foreground", name === "chart-demo" && "h-[404px]")}>
+      <Spinner />
+      <span className="sr-only">Loading example…</span>
+    </span>
+  )
+
+  React.useEffect(() => {
+    if (active) return
+    if (typeof IntersectionObserver === "undefined") {
+      setActive(true)
+      return
+    }
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          setActive(true)
+          observer.disconnect()
+        }
+      },
+      { rootMargin: "300px" }
+    )
+    if (previewRef.current) observer.observe(previewRef.current)
+    return () => observer.disconnect()
+  }, [active])
 
   return (
     <div data-slot="component-preview" className={cn("group relative mt-4 mb-12 flex flex-col overflow-hidden rounded-2xl border", wrapperClassName)}>
-      <div data-slot="preview">
+      <div ref={previewRef} data-slot="preview">
         <div
           data-align={align}
           className={cn(
@@ -76,14 +113,20 @@ export function ComponentPreview({
             className
           )}
         >
-          <React.Suspense fallback={<Spinner className="text-muted-foreground" />}>
-            {Example ? <Example /> : <p className="text-sm text-muted-foreground">No example named {name}.</p>}
-          </React.Suspense>
+          {active ? (
+            <React.Suspense fallback={loading}>
+              {Example ? <Example /> : <p className="text-sm text-muted-foreground">No example named {name}.</p>}
+            </React.Suspense>
+          ) : loading}
         </div>
       </div>
-      {!hideCode && code && (
+      {!hideCode && (
         <div data-slot="code" className="relative overflow-hidden border-t">
-          {open ? (
+          {active && !sourceLoader ? (
+            <p role="alert" className="p-4 text-sm text-destructive">No source named {name}.</p>
+          ) : source === null ? (
+            <div role="status" className="flex h-23 items-center justify-center text-sm text-muted-foreground">Loading source…</div>
+          ) : open ? (
             <CodeBlock code={code} className="my-0 rounded-none" />
           ) : (
             <div className="relative">
