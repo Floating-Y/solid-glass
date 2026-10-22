@@ -4,18 +4,38 @@ import { Navigate, Route, Routes, useLocation } from "react-router-dom"
 import { Toaster } from "@/components/ui/sonner"
 import { Toaster as ToastToaster } from "@/components/ui/toast"
 import { TooltipProvider } from "@/components/ui/tooltip"
-import { Home } from "@/pages/home"
 import { DevBanner } from "@/pages/dev-banner"
-import { DevExamples } from "@/pages/dev-examples"
-import { ComponentsIndex, DocPage, DocsLayout } from "@/site/docs"
+import { ComponentsIndex, DocErrorBoundary, DocLoading, DocsLayout } from "@/site/docs-layout"
 import { SiteFooter } from "@/site/site-footer"
 import { SiteHeader } from "@/site/site-header"
 
 // The preview on the Create page is a few dozen cards and every icon by name: fetched when the page is.
 const Create = React.lazy(() => import("@/pages/create"))
+const Home = React.lazy(() => import("@/pages/home").then((page) => ({ default: page.Home })))
+const DocPage = React.lazy(() => import("@/site/docs").then((page) => ({ default: page.DocPage })))
+const DevExamples = import.meta.env.DEV
+  ? React.lazy(() => import("@/pages/dev-examples").then((page) => ({ default: page.DevExamples })))
+  : null
 // The blocks carry their own source to show it: fetched with the Blocks page, not with every page.
 const Blocks = React.lazy(() => import("@/pages/blocks").then((page) => ({ default: page.Blocks })))
-const BlockView = React.lazy(() => import("@/pages/blocks").then((page) => ({ default: page.BlockView })))
+const BlockView = React.lazy(() => import("@/pages/block-view"))
+
+const loading = (
+  <div role="status" className="flex min-h-[50svh] flex-1 items-center justify-center text-sm text-muted-foreground">
+    Loading…
+  </div>
+)
+
+function DocRoute({ section }: { section: "docs" | "components" }) {
+  const { pathname } = useLocation()
+  return (
+    <DocErrorBoundary resetKey={pathname} section={section}>
+      <React.Suspense fallback={<DocLoading section={section} />}>
+        <DocPage section={section} />
+      </React.Suspense>
+    </DocErrorBoundary>
+  )
+}
 
 /** A new page starts at its top, unless the link was to a place on it. */
 function ScrollToTop() {
@@ -38,7 +58,7 @@ export function App() {
           <Route
             path="view/:name"
             element={
-              <React.Suspense fallback={null}>
+              <React.Suspense fallback={loading}>
                 <BlockView />
               </React.Suspense>
             }
@@ -55,7 +75,14 @@ export function App() {
         <SiteHeader />
         <main className="flex min-h-0 flex-1 flex-col">
           <Routes>
-            <Route index element={<Home />} />
+            <Route
+              index
+              element={
+                <React.Suspense fallback={loading}>
+                  <Home />
+                </React.Suspense>
+              }
+            />
             <Route
               path="create"
               element={
@@ -73,12 +100,21 @@ export function App() {
               }
             />
             <Route path="docs" element={<DocsLayout />}>
-              <Route index element={<DocPage section="docs" />} />
+              <Route index element={<DocRoute section="docs" />} />
               <Route path="components" element={<ComponentsIndex />} />
-              <Route path="components/:slug" element={<DocPage section="components" />} />
-              <Route path=":slug" element={<DocPage section="docs" />} />
+              <Route path="components/:slug" element={<DocRoute section="components" />} />
+              <Route path=":slug" element={<DocRoute section="docs" />} />
             </Route>
-            {import.meta.env.DEV && <Route path="dev/examples" element={<DevExamples />} />}
+            {DevExamples && (
+              <Route
+                path="dev/examples"
+                element={
+                  <React.Suspense fallback={loading}>
+                    <DevExamples />
+                  </React.Suspense>
+                }
+              />
+            )}
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </main>

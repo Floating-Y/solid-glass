@@ -1,11 +1,10 @@
 import * as React from "react"
 import { CheckIcon, ExternalLinkIcon, MonitorIcon, RotateCwIcon, SmartphoneIcon, TabletIcon, TerminalIcon } from "lucide-react"
-import { Link, useParams } from "react-router-dom"
+import { Link } from "react-router-dom"
 
 import { cn } from "@/lib/utils"
 import { blocks, type Block } from "@/blocks"
 import { Button, buttonVariants } from "@/components/ui/button"
-import { Toaster } from "@/components/ui/sonner"
 import { StatusGlyph } from "@/components/ui/status-glyph"
 import { useCopyToClipboard } from "@/hooks/use-copy-to-clipboard"
 import { CodeBlock } from "@/site/code"
@@ -171,31 +170,6 @@ export function Blocks() {
           <BlockViewer key={block.name} block={block} />
         ))}
       </div>
-    </div>
-  )
-}
-
-/** A block by itself, filling the window: what the frame on the Blocks page shows. */
-export function BlockView() {
-  const { name } = useParams()
-  const block = blocks.find((entry) => entry.name === name)
-  if (!block) return null
-  return (
-    // shadcn/ui's blocks ask for their pictures from the root of the site ("/placeholder.svg"). Where
-    // the site lives under a path, one that was not found there is asked for again under that path.
-    <div
-      className="contents"
-      onErrorCapture={(event) => {
-        const image = event.target
-        if (!(image instanceof HTMLImageElement) || image.dataset.retried) return
-        image.dataset.retried = "1"
-        image.src = `${base}/placeholder.svg`
-      }}
-    >
-      <React.Suspense fallback={null}>
-        <block.component />
-      </React.Suspense>
-      <Toaster />
     </div>
   )
 }

@@ -1,5 +1,5 @@
 /**
- * Turn the documentation in content/ into src/docs/generated.json, which the site renders.
+ * Turn content/ into a lightweight src/docs/catalog.json and one JSON body per page.
  *
  *   node scripts/build-docs.mjs
  *
@@ -9,7 +9,8 @@
  * <CodeTabs> block that says how to install, <Callout>, <Step>, and <Widget name="…" /> for the
  * live figures in Solid Glass's own pages. Anything else that is JSX is left out.
  */
-import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs"
+import assert from "node:assert/strict"
+import { existsSync, mkdirSync, readdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs"
 import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
 
@@ -190,6 +191,26 @@ for (const [folder, section] of [
   pages.push(...found)
 }
 
-mkdirSync(join(root, "src/docs"), { recursive: true })
-writeFileSync(join(root, "src/docs/generated.json"), JSON.stringify(pages))
-console.log(`docs: ${pages.length} pages -> src/docs/generated.json`)
+const out = join(root, "src/docs")
+const catalog = pages.map(({ blocks, ...entry }) => entry)
+const keys = pages.map((page) => `${page.section}/${page.slug}`)
+assert.equal(new Set(keys).size, pages.length, "Documentation page keys must be unique")
+for (const page of pages) assert(!/[\\/]/.test(page.slug), `Invalid page slug: ${page.slug}`)
+
+mkdirSync(out, { recursive: true })
+writeFileSync(join(out, "catalog.json"), JSON.stringify(catalog))
+for (const section of ["docs", "solid", "components"]) {
+  const directory = join(out, "pages", section)
+  mkdirSync(directory, { recursive: true })
+  const sectionPages = pages.filter((page) => page.section === section)
+  const filenames = new Set(sectionPages.map((page) => `${page.slug}.json`))
+  // Deleted source pages must not remain discoverable by import.meta.glob.
+  for (const filename of readdirSync(directory)) {
+    if (filename.endsWith(".json") && !filenames.has(filename)) unlinkSync(join(directory, filename))
+  }
+  for (const page of sectionPages) writeFileSync(join(directory, `${page.slug}.json`), JSON.stringify(page))
+}
+const legacy = join(out, "generated.json")
+if (existsSync(legacy)) unlinkSync(legacy)
+
+console.log(`docs: ${pages.length} pages -> src/docs/catalog.json + src/docs/pages/`)
