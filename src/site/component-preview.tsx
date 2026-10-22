@@ -46,8 +46,7 @@ function useSource(load: (() => Promise<string>) | undefined) {
       live = false
     }
   }, [load])
-  if (error) throw error
-  return text
+  return { text, error }
 }
 
 /**
@@ -73,12 +72,11 @@ export function ComponentPreview({
   const [active, setActive] = React.useState(false)
   const Example = active ? exampleOf(name) : null
   const sourceLoader = sources[`/src/examples/${name}.tsx`]
-  const source = useSource(active && !hideCode ? sourceLoader : undefined)
+  const { text: source, error: sourceError } = useSource(active && !hideCode ? sourceLoader : undefined)
   const [open, setOpen] = React.useState(false)
   const code = source ?? ""
   const loading = (
-    // The borderless interactive chart has no minimum height on narrow screens.
-    <span role="status" className={cn("flex h-52 max-h-full items-center justify-center text-muted-foreground", name === "chart-demo" && "h-[404px]")}>
+    <span role="status" className="flex h-52 max-h-full items-center justify-center text-muted-foreground">
       <Spinner />
       <span className="sr-only">Loading example…</span>
     </span>
@@ -124,6 +122,8 @@ export function ComponentPreview({
         <div data-slot="code" className="relative overflow-hidden border-t">
           {active && !sourceLoader ? (
             <p role="alert" className="p-4 text-sm text-destructive">No source named {name}.</p>
+          ) : sourceError ? (
+            <p role="alert" className="p-4 text-sm text-destructive">Unable to load this source. Please reload to try again.</p>
           ) : source === null ? (
             <div role="status" className="flex h-23 items-center justify-center text-sm text-muted-foreground">Loading source…</div>
           ) : open ? (
@@ -147,7 +147,8 @@ export function ComponentPreview({
 
 /** A component's own source, as it is installed. */
 export function ComponentSource({ name, title }: { name: string; title?: string }) {
-  const source = useSource(uiSources[`/src/components/ui/${name}.tsx`])
+  const { text: source, error } = useSource(uiSources[`/src/components/ui/${name}.tsx`])
+  if (error) return <p role="alert" className="my-4 text-sm text-destructive">Unable to load this source. Please reload to try again.</p>
   if (!source) return null
   return <CodeBlock code={source} title={title ?? `components/ui/${name}.tsx`} />
 }

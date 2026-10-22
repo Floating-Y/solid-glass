@@ -252,6 +252,7 @@ const bodies = Object.fromEntries(
 
 function DocContent({ page }: { page: Page }) {
   const { hash, key } = useLocation()
+  const contentRef = React.useRef<HTMLDivElement>(null)
   // The target exists only after the requested body has committed, including on history navigation.
   React.useEffect(() => {
     if (!hash) return
@@ -261,12 +262,31 @@ function DocContent({ page }: { page: Page }) {
     } catch {
       // A malformed escape can still be a literal heading ID.
     }
-    document.getElementById(id)?.scrollIntoView()
+    const target = document.getElementById(id)
+    if (!target) return
+    const scrollToTarget = () => target.scrollIntoView()
+    scrollToTarget()
+    if (typeof ResizeObserver === "undefined") return
+
+    // Lazy previews above the heading can grow after navigation, including without browser scroll anchoring.
+    const observer = new ResizeObserver(scrollToTarget)
+    for (const preview of contentRef.current?.querySelectorAll('[data-slot="component-preview"]') ?? []) {
+      if (preview.compareDocumentPosition(target) & Node.DOCUMENT_POSITION_FOLLOWING) observer.observe(preview)
+    }
+    // Once the reader interacts, their position takes precedence over the original anchor.
+    const stop = () => {
+      observer.disconnect()
+      for (const event of ["wheel", "touchstart", "pointerdown", "keydown"]) window.removeEventListener(event, stop)
+    }
+    for (const event of ["wheel", "touchstart", "pointerdown", "keydown"]) window.addEventListener(event, stop, { passive: true })
+    return stop
   }, [hash, key, page])
 
   return (
     <DocShell title={page.title} description={page.description} url={urlOf(page)} toc={<TableOfContents page={page} />}>
-      <Blocks blocks={page.blocks} />
+      <div ref={contentRef}>
+        <Blocks blocks={page.blocks} />
+      </div>
     </DocShell>
   )
 }

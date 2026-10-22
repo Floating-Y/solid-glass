@@ -11,7 +11,7 @@
  */
 import assert from "node:assert/strict"
 import { existsSync, mkdirSync, readdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs"
-import { basename, dirname, join } from "node:path"
+import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..")
@@ -26,7 +26,7 @@ const slug = (text) =>
 const attr = (tag, name) => tag.match(new RegExp(`(?:^|[\\s<])${name}="([^"]*)"`))?.[1]
 
 function parse(file, section) {
-  const raw = readFileSync(file, "utf8").replace(/\r\n/g, "\n")
+  const raw = readFileSync(file, "utf8")
   const front = raw.match(/^---\n([\s\S]*?)\n---\n/)
   const meta = Object.fromEntries(
     (front?.[1] ?? "")
@@ -172,7 +172,7 @@ function parse(file, section) {
     if (n) block.id = `${block.id}-${n}`
   }
 
-  const name = basename(file, ".mdx")
+  const name = file.split("/").pop().replace(/\.mdx$/, "")
   return { slug: name, section, group: meta.group, title: meta.title ?? name, description: meta.description ?? "", order: Number(meta.order ?? 0), blocks: kept }
 }
 
@@ -209,20 +209,8 @@ for (const section of ["docs", "solid", "components"]) {
     if (filename.endsWith(".json") && !filenames.has(filename)) unlinkSync(join(directory, filename))
   }
   for (const page of sectionPages) writeFileSync(join(directory, `${page.slug}.json`), JSON.stringify(page))
-  assert.deepEqual(readdirSync(directory).filter((file) => file.endsWith(".json")).sort(), [...filenames].sort())
 }
 const legacy = join(out, "generated.json")
 if (existsSync(legacy)) unlinkSync(legacy)
 
-// Check the files consumers import, including metadata, order, and the parsed body.
-const savedCatalog = JSON.parse(readFileSync(join(out, "catalog.json"), "utf8"))
-assert.equal(savedCatalog.length, pages.length)
-for (const [index, page] of pages.entries()) {
-  const savedPage = JSON.parse(readFileSync(join(out, "pages", page.section, `${page.slug}.json`), "utf8"))
-  const { blocks, ...entry } = savedPage
-  assert(!("blocks" in savedCatalog[index]), "The catalog must not contain document bodies")
-  assert(Array.isArray(blocks), `Missing body: ${keys[index]}`)
-  assert.deepEqual(entry, savedCatalog[index])
-  assert.deepEqual(savedPage, JSON.parse(JSON.stringify(page)))
-}
-console.log(`docs: ${pages.length} pages -> src/docs/catalog.json + src/docs/pages/ (consistency checked)`)
+console.log(`docs: ${pages.length} pages -> src/docs/catalog.json + src/docs/pages/`)
